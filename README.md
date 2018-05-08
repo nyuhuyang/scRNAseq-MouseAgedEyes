@@ -1,4 +1,4 @@
-# scRNAseq-MouseEyes
+# scRNAseq-MouseAgedEyes
 
 ## Research Background
 The choroid is a highly vascularized layer of the eye localized between the sclera and the outermost retinal layer, the retinal pigment epithelium (RPE). Blood supplied by choroidal circulation is the main source of oxygen and nutrients for the RPE and photoreceptors, as well as the main evacuation route for retinal waste. On the other hand, the RPE provides essential support functions for photoreceptor homeostasis and visual function. Thus, it is not surprising that RPE/choroid alterations are present in a vast range of posterior ophthalmic diseases including uveal inflammation and macular degenerative diseases such as Best disease, Stargardt disease and age-related macular degeneration (AMD).
@@ -13,9 +13,9 @@ Chromium single-cell RNA-seq outputs were processed by Cell Ranger analysis pipe
 ## How to use this repository
 
 #### Software Setup
-R version 3.4.3 (Did't test other versions)<br />
-dplyr_0.7.4 (Did't test other versions)<br />
-Seurat_2.2.1 (Must be >2.2.0 )<br />
+R version 3.4.3 http://cran.us.r-project.org/bin/macosx/R-3.4.3.pkg <br />
+dplyr_0.7.4 <br />
+Seurat_2.1.0 https://cran.r-project.org/src/contrib/Archive/Seurat/Seurat_2.1.0.tar.gz (other Seurat versions will generate slightly different results )<br />
 
 After pulling this repository, create folders **_data_** and **_output_** in the top working folder.
 Move Cell Ranger analysis results into **_data_** folder.

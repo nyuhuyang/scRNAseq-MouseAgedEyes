@@ -53,7 +53,7 @@ Featureplot(Stromal_fibroblasts)
 Featureplot(Neurons)
 
 markers.to.plot <- c(Melanocytes,Myelinating_Schwann_cells,Endothelium[c(1:3,5,7)],
-                     Hematopoietic[1:2],Pericytes[c(4,6:7)],Mesenchymal[c(1,3)],RPE,
+                     Hematopoietic[1:2],Pericytes[c(4,6:7)],Mesenchymal[c(1,4)],RPE,
                      Smooth_muscle_cells)
 markers.to.plot <- unique(markers.to.plot)
 DotPlot(mouse_eyes, genes.plot = rev(markers.to.plot),

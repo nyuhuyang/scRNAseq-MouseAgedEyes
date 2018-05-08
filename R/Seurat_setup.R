@@ -77,7 +77,7 @@ DimHeatmap(object = mouse_eyes, reduction.type = "cca", cells.use = 500, dim.use
 DimHeatmap(object = mouse_eyes, reduction.type = "cca", cells.use = 500, dim.use = 10:18, 
            do.balanced = TRUE)
 
-#======1.3 align seurat objects =========================
+#======1.3 QC =========================
 mouse_eyes <- CalcVarExpRatio(object = mouse_eyes, reduction.type = "pca",
                               grouping.var = "conditions", dims.use = 1:13)
 mouse_eyes <- SubsetData(mouse_eyes, subset.name = "var.ratio.pca",accept.low = 0.5)
@@ -96,6 +96,7 @@ mouse_eyes <- FilterCells(object = mouse_eyes, subset.names = c("nGene", "percen
 par(mfrow = c(1, 2))
 GenePlot(object = mouse_eyes, gene1 = "nUMI", gene2 = "percent.mito")
 GenePlot(object = mouse_eyes, gene1 = "nUMI", gene2 = "nGene")
+
 #======1.4 align seurat objects =========================
 #Now we align the CCA subspaces, which returns a new dimensional reduction called cca.aligned
 set.seed(42)
@@ -115,24 +116,6 @@ p2 <- TSNEPlot(mouse_eyes, do.label = F, do.return = T, pt.size = 1)
 plot_grid(p1, p2)
 #dev.off()
 
-#======1.4 QC ==================================
-mito.genes <- grep(pattern = "^mt-", x = rownames(x = mouse_eyes@data), value = TRUE)
-percent.mito <- Matrix::colSums(mouse_eyes@raw.data[mito.genes, ])/Matrix::colSums(mouse_eyes@raw.data)
-mouse_eyes <- AddMetaData(object = mouse_eyes, metadata = percent.mito, col.name = "percent.mito")
-mouse_eyes <- ScaleData(object = mouse_eyes, genes.use = genes.use, display.progress = FALSE, 
-                        vars.to.regress = "percent.mito")
-#Now we can run a single integrated analysis on all cells!
-VlnPlot(object = mouse_eyes, features.plot = c("nGene", "nUMI", "percent.mito"), nCol = 3)
-
-par(mfrow = c(1, 2))
-GenePlot(object = mouse_eyes, gene1 = "nUMI", gene2 = "percent.mito")
-GenePlot(object = mouse_eyes, gene1 = "nUMI", gene2 = "nGene")
-
-mouse_eyes <- FilterCells(object = mouse_eyes, subset.names = c("nGene", "percent.mito"), 
-                          low.thresholds = c(600, -Inf), high.thresholds = c(5000, 0.10))
-
-#Now, we annotate the clusters as before based on canonical markers.
-#png('./output/TSNEPlot.png')
 TSNEPlot(object = mouse_eyes,do.label = TRUE, group.by = "ident", 
          do.return = TRUE, no.legend = TRUE,
          pt.size = 1,label.size = 8 )+
