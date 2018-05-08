@@ -21,7 +21,7 @@ After pulling this repository, create folders **_data_** and **_output_** in the
 Move Cell Ranger analysis results into **_data_** folder.
 
 ### 1. Seurat_setup.R
-https://github.com/nyuhuyang/scRNAseq-MouseAgedEyes/blob/master/R/Seurat_setup.R
+https://github.com/nyuhuyang/scRNAseq-MouseAgedEyes/blob/master/R/Seurat_setup.R <br />
 Unsupervised cell clustering analysis was carried out using the Seurat 2.2 R package. Cells with <500 genes and genes detected within <3 cells were excluded from the analysis. Gene expression raw counts were normalized following a global-scaling normalization method with a scale factor of 10,000 and a log transformation, using the Seurat NormalizeData function. The top 1000 highly variable genes from young C57BL/6J and aged C57BL/6J datasets were selected, followed by a canonical correlation analysis (CCA) to identify common sources of variation between the two datasets and minimize the batch effect. The first 20 CCA results were chosen for principal component analysis (PCA). Cells were used for 2-dimensional t-Distributed Stochastic Neighbor Embedding (tSNE) (ref van der maaten and hinton 2008) with 0.8 resolution.
 
  After running this script, a `mouse_eyes_alignment.Rda` file will be generated inside **_data_** folder.
@@ -29,7 +29,7 @@ Unsupervised cell clustering analysis was carried out using the Seurat 2.2 R pac
  
  
 ### 2. Identify_Cell_Types_Manually.R
-https://github.com/nyuhuyang/scRNAseq-MouseAgedEyes/blob/master/R/Identify_Cell_Types_Manually.R
+https://github.com/nyuhuyang/scRNAseq-MouseAgedEyes/blob/master/R/Identify_Cell_Types_Manually.R <br />
 All clusters are examed against 122(number may change) CD marker genes.
 All cell types are predicted by at least two marker genes with the adjusted p-value smaller than 10^-30.
 
@@ -43,7 +43,7 @@ Retinal pigment epitheliums were identified by Rlbp1 and Rpe65.<br />
 Multiple plots and table will be generated, save them if you want. I prefer to keep the original identity of `mouse_eyes_alignment.Rda` intact for further downstream analysis.
 
 ### 3. Differential_analysis.R
-https://github.com/nyuhuyang/scRNAseq-MouseAgedEyes/blob/master/R/Differential_analysis.R
+https://github.com/nyuhuyang/scRNAseq-MouseAgedEyes/blob/master/R/Differential_analysis.R <br />
 #### 3.1~3.3 Visualization
 `TSNEPlot()`, `SplitDotPlotGG()`,`ggplot()+LabelUR()+LabelLR()` are implemented for visualising differential expressed genes across conditions.
 
