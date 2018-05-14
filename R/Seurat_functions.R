@@ -286,14 +286,27 @@ SplitFindAllMarkers <- function(object,split.by = "conditions", write.csv = TRUE
 
 # find and print differentially expressed genes across conditions ================
 # combine SetIdent,indMarkers and avg_UMI
-FindAllMarkersbyAge<- function(object, genes.use = NULL, logfc.threshold = -Inf, 
+FindAllMarkersbyAge<- function(object,split.by = "conditions", genes.use = NULL, logfc.threshold = -Inf, 
                                test.use = "bimod", min.pct = -Inf, min.diff.pct = -Inf, 
                                print.bar = TRUE, only.pos = FALSE, max.cells.per.ident = Inf, 
                                return.thresh = 1, do.print = FALSE, random.seed = 1, 
                                min.cells = -Inf, latent.vars = "nUMI", assay.type = "RNA", 
                                ...) 
 {   
+    "
+    split seurat object by certein criteria, and find all markers+ UMI +adj_p
+    
+    Inputs
+    -------------------
+    object: aligned seurat object with labels at object@meta.data$
+    split.by: the criteria to split
+
+    Outputs
+    --------------------
+    object.markers: list of gene markers
+    "
     cells <- FetchData(object,"conditions")
+    cells$conditions <- sub("_129_B6","",cells$conditions)
     cells$ident <- object@ident
     cells$new.ident <- paste0(cells$ident,"_",cells$conditions)
     object <- SetIdent(object, cells.use = rownames(cells),
@@ -303,12 +316,12 @@ FindAllMarkersbyAge<- function(object, genes.use = NULL, logfc.threshold = -Inf,
     avg_UMI <- list()
     for (i in 1:length(x = idents.all)) {
         genes.de[[i]] <- tryCatch({
-            FindMarkers(object = object, 
+            FindMarkers.1(object = object, 
                         ident.1 = paste0(idents.all[i],"_","young"),
                         ident.2 = paste0(idents.all[i],"_","aged"), 
                         logfc.threshold = logfc.threshold, test.use = test.use, 
                         min.pct = min.pct, min.diff.pct = min.diff.pct, 
-                        min.cells = min.cells,...)
+                        min.cells = min.cells)
         }, error = function(cond) {
             return(NULL)
         })

@@ -110,22 +110,27 @@ write.csv(x= mouse_eyes.gde, file="./output/mouse_eyes_young_vs_aged.csv")
 # Compare subclusters within aged and young
 lnames = load(file = "./data/mouse_eyes_alignment.Rda")
 lnames
+table(mouse_eyes@ident)
+idents <- as.data.frame(table(mouse_eyes@ident))
+old.ident.ids <- idents$Var1
 # keep the original ident name intact
 print("3.5 Compare DE between subcluster within all major cell types, and visualize all major cell types")
 # SubsetData===============
 T.cells <- SubsetData(object = mouse_eyes,
-                      ident.use = old.ident.ids[(new.cluster.ids %in% "T cells")])
-Monocytes <- SubsetData(object = mouse_eyes,
-                        ident.use = c(old.ident.ids[(new.cluster.ids %in% "Monocytes")]))
-EC <- SubsetData(object = mouse_eyes,
-                 ident.use = old.ident.ids[(new.cluster.ids %in% "Endothelial cells")])
-RPE <- SubsetData(object = mouse_eyes,
-                  ident.use = old.ident.ids[(new.cluster.ids %in% "Retinal Pigment Epithelium")])
+                      ident.use = new.cluster.ids[grepl("T cells",new.cluster.ids)])
 
+Monocytes <- SubsetData(object = mouse_eyes,
+                        ident.use = new.cluster.ids[grepl("Monocytes",new.cluster.ids)])
+
+EC <- SubsetData(object = mouse_eyes,
+                 ident.use = new.cluster.ids[grepl("Endothelial cells",new.cluster.ids)])
+                 
+RPE <- SubsetData(object = mouse_eyes,
+                  ident.use = new.cluster.ids[grepl("Retinal pigmented epithelium",new.cluster.ids)])
+                  
 Pericytes <- SubsetData(object = mouse_eyes,
-                        ident.use = old.ident.ids[(new.cluster.ids %in% "Mesenchymal cells") | 
-                                                      (new.cluster.ids %in% "Pericytes") |
-                                                      (new.cluster.ids %in% "Smooth muscle cells")])
+                        ident.use = new.cluster.ids[grepl("Pericytes",new.cluster.ids)])
+
 # split TSNE plot=============
 SplitTSNEPlot(T.cells)
 SplitTSNEPlot(Monocytes)
