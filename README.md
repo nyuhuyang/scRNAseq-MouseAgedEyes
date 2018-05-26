@@ -64,16 +64,17 @@ Below is a example of `./output/mouse_eyes.aged.csv` file with first 6 rows.
 | Igfbp3  |   0  | 2.5595 | 0.725 | 0.053   |    0 | 1.8029 | Endothelial Cells | Igfbp3
 |    Eng  |   0  | 2.4891 | 0.956 | 0.153   |    0 | 2.6239 | Endothelial Cells  | Eng
 
-The results data frame has the following columns :
+The results have the following columns :
 
-p_val : p_val (unadjusted) is calculated using likelihood-ratio test for single cell gene expression, (McDavid et al., Bioinformatics, 2013) <br />
-avg_logFC : log fold-chage of the average expression between the two groups. Positive values indicate that the gene is more highly expressed in the first group.<br />
-pct.1 : The percentage of cells where the gene is detected in the first group.<br />
-pct.2 : The percentage of cells where the gene is detected in the second group.<br />
-p_val_adj : Adjusted p-value, based on bonferroni correction using all genes in the dataset.<br />
-avg_UMI : average UMI of the cluster.<br />
-cluster : either cell types or original clusters in `./data/mouse_eyes_alignment.Rda`. Will be specified in later section.<br />
-row.name and gene column are identical.<br />
+p_val: p_val (unadjusted) is calculated using likelihood-ratio test for single-cell gene expression, (McDavid et al., Bioinformatics, 2013)  <br />
+avg_logFC: log fold-change of the average expression between the two groups. Positive values indicate that the gene is more highly expressed in the first group. <br />
+pct.1: The percentage of cells where the gene is detected in the first group. <br />
+pct.2: The percentage of cells where the gene is detected in the all other groups. <br />
+p_val_adj: Adjusted p-value, based on Bonferroni correction using all genes in the dataset. <br />
+avg_UMI: average UMI of the gene in that cluster. <br />
+cluster/cell type: either original clusters or cell types. <br />
+Gene: Since row name must be identical, duplicated row names will be add .x at end.  <br />
+
 
 #### 3.4 Compare differential expression across all major cell types
 
