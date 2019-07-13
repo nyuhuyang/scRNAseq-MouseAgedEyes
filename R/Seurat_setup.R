@@ -6,10 +6,17 @@
 
 library(Seurat)
 library(dplyr)
-source("./R/Seurat_functions.R")
+library(cowplot)
+library(kableExtra)
+library(magrittr)
+library(harmony)
+library(scran)
+source("R/utils/Seurat3_functions.R")
+path <- paste0("output/",gsub("-","",Sys.Date()),"/")
+if(!dir.exists(path))dir.create(path, recursive = T)
 ########################################################################
 #
-#  1 Seurat Alignment 
+#  1 Seurat setup
 # 
 # ######################################################################
 #======1.1 Setup the Seurat objects =========================
@@ -17,110 +24,133 @@ source("./R/Seurat_functions.R")
 
 # setup Seurat objects since both count matrices have already filtered
 # cells, we do no additional filtering here
-mouse_eyes_raw <- list()
-mouse_eyes_Seurat <- list()
+df_samples <- readxl::read_excel("doc/sample_list.xls")
+colnames(df_samples) <- colnames(df_samples) %>% tolower
+(samples = df_samples$sample)
 
-protocols <- c("129_B6","129_B6_aged")
-projects <- c("EC-IB-4698","EC-IB-4867")
-conditions <- c("young_129_B6", "aged_129_B6")
+#======1.2 load  SingleCellExperiment =========================
+(load(file = "data/sce_mm10_2_20190710.Rda"))
+names(sce_list)
+object_list <- lapply(sce_list, as.Seurat)
 
-for(i in 1:length(protocols)){
-    mouse_eyes_raw[[i]] <- Read10X(data.dir = paste0("./data/",
-                                                     protocols[i],"/outs/filtered_gene_bc_matrices/mm10/"))
-    colnames(mouse_eyes_raw[[i]]) <- paste0(conditions[i],
-                                            "_",colnames(mouse_eyes_raw[[i]]))
-    mouse_eyes_Seurat[[i]] <- CreateSeuratObject(mouse_eyes_raw[[i]],
-                                                 min.cells = 3,
-                                                 min.genes = 200,
-                                                 project = projects[i],
-                                                 names.delim = "_")
-    mouse_eyes_Seurat[[i]]@meta.data$conditions <- conditions[i]
-}
-mouse_eyes_Seurat <- lapply(mouse_eyes_Seurat, FilterCells, 
-                            subset.names = "nGene", 
-                            low.thresholds = 200, 
-                            high.thresholds = Inf)
-mouse_eyes_Seurat <- lapply(mouse_eyes_Seurat, NormalizeData)
-mouse_eyes_Seurat <- lapply(mouse_eyes_Seurat, ScaleData)
-mouse_eyes_Seurat <- lapply(mouse_eyes_Seurat, FindVariableGenes, do.plot = FALSE)
+for(i in 1:length(samples)){
+    object_list[[i]]$orig.ident <- df_samples$sample[i]
+    object_list[[i]]$conditions <- df_samples$conditions[i]
+    }
 
-# we will take the union of the top 1k variable genes in each dataset for
-# alignment note that we use 1k genes in the manuscript examples, you can
-# try this here with negligible changes to the overall results
-g <- lapply(mouse_eyes_Seurat, function(x) head(rownames(x@hvg.info), 2000))
-genes.use <- unique(c(g[[1]],g[[2]]))
-for(i in 1:length(conditions)){
-    genes.use <- intersect(genes.use, rownames(mouse_eyes_Seurat[[i]]@scale.data))
-}
-length(genes.use)
+#========1.3 merge ===================================
+object <- Reduce(function(x, y) merge(x, y, do.normalize = F), object_list)
+object@assays$RNA@data = object@assays$RNA@data *log(2) # change to natural log
+remove(sce_list,object_list);GC()
+save(object, file = paste0("data/mm10_young_aged_eyes_",length(df_samples$sample),"_",gsub("-","",Sys.Date()),".Rda"))
 
-#======1.2 Perform a canonical correlation analysis (CCA) =========================
-# run a canonical correlation analysis to identify common sources
-# of variation between the two datasets.
-mouse_eyes <- RunCCA(mouse_eyes_Seurat[[1]],mouse_eyes_Seurat[[2]],
-                     genes.use = genes.use,
-                     num.cc = 30)
-#save(mouse_eyes, file = "./data/mouse_eyes_alignment.Rda")
+#======1.2 QC, pre-processing and normalizing the data=========================
+# store mitochondrial percentage in object meta data
+object <- PercentageFeatureSet(object = object, pattern = "^mt-", col.name = "percent.mt")
+Idents(object) = "orig.ident"
+Idents(object) %<>% factor(levels = samples)
+(load(file = paste0(path, "g1_2_20190710.Rda")))
 
-# CCA plot CC1 versus CC2 and look at a violin plot
-p1 <- DimPlot(object = mouse_eyes, reduction.use = "cca", group.by = "conditions", 
-              pt.size = 0.5, do.return = TRUE)
-p2 <- VlnPlot(object = mouse_eyes, features.plot = "CC1", group.by = "conditions", 
-              do.return = TRUE)
-plot_grid(p1, p2)
+object %<>% subset(subset = nFeature_RNA > 800 & nCount_RNA > 1900 & percent.mt < 10)
+# FilterCellsgenerate Vlnplot before and after filteration
+g2 <- lapply(c("nFeature_RNA", "nCount_RNA", "percent.mt"), function(features){
+    VlnPlot(object = object, features = features, ncol = 3, pt.size = 0.01)+
+        theme(axis.text.x = element_text(size=15),legend.position="none")
+})
 
-PrintDim(object = mouse_eyes, reduction.type = "cca", dims.print = 1:2, genes.print = 10)
+save(g2,file= paste0(path,"g2_2_20190710.Rda"))
+jpeg(paste0(path,"S1_nGene.jpeg"), units="in", width=10, height=7,res=600)
+print(plot_grid(g1[[1]]+ggtitle("nFeature_RNA before filteration")+
+                    scale_y_log10(limits = c(100,10000)),
+                g2[[1]]+ggtitle("nFeature_RNA after filteration")+
+                    scale_y_log10(limits = c(100,10000))))
+dev.off()
+jpeg(paste0(path,"S1_nUMI.jpeg"), units="in", width=10, height=7,res=600)
+print(plot_grid(g1[[2]]+ggtitle("nCount_RNA before filteration")+
+                    scale_y_log10(limits = c(500,100000)),
+                g2[[2]]+ggtitle("nCount_RNA after filteration")+ 
+                    scale_y_log10(limits = c(500,100000))))
+dev.off()
+jpeg(paste0(path,"S1_mito.jpeg"), units="in", width=10, height=7,res=600)
+print(plot_grid(g1[[3]]+ggtitle("mito % before filteration")+
+                    ylim(c(0,50)),
+                g2[[3]]+ggtitle("mito % after filteration")+ 
+                    ylim(c(0,50))))
+dev.off()
 
-DimHeatmap(object = mouse_eyes, reduction.type = "cca", cells.use = 500, dim.use = c(1:3,11:13), 
-           do.balanced = TRUE)
+######################################
+# After removing unwanted cells from the dataset, the next step is to normalize the data.
+object <- FindVariableFeatures(object = object, selection.method = "vst",
+                            num.bin = 20,
+                            mean.cutoff = c(0.1, 8), dispersion.cutoff = c(1, Inf))
 
-DimHeatmap(object = mouse_eyes, reduction.type = "cca", cells.use = 500, dim.use = 10:18, 
-           do.balanced = TRUE)
+# Identify the 10 most highly variable genes
+top20 <- head(VariableFeatures(object), 20)
 
-#======1.3 QC =========================
-mouse_eyes <- CalcVarExpRatio(object = mouse_eyes, reduction.type = "pca",
-                              grouping.var = "conditions", dims.use = 1:13)
-mouse_eyes <- SubsetData(mouse_eyes, subset.name = "var.ratio.pca",accept.low = 0.5)
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(object)
+plot2 <- LabelPoints(plot = plot1, points = top20, repel = TRUE)
+jpeg(paste0(path,"VariableFeaturePlot.jpeg"), units="in", width=10, height=7,res=600)
+print(plot2)
+dev.off()
+#======1.3 1st run of pca-tsne  =========================
+DefaultAssay(object) <- "RNA"
+object %<>% SCTransform
+object %<>% RunPCA(verbose =F,npcs = 100)
+object <- JackStraw(object, num.replicate = 20,dims = 100)
+object <- ScoreJackStraw(object, dims = 1:100)
+jpeg(paste0(path,"JackStrawPlot~.jpeg"), units="in", width=10, height=7,res=600)
+JackStrawPlot(object, dims = 70:80)
+dev.off()
+npcs =75
+object %<>% FindNeighbors(reduction = "pca",dims = 1:npcs)
+object %<>% FindClusters(reduction = "pca",resolution = 0.6,
+                       dims.use = 1:npcs,print.output = FALSE)
+object %<>% RunTSNE(reduction = "pca", dims = 1:npcs)
+object %<>% RunUMAP(reduction = "pca", dims = 1:npcs)
 
-mito.genes <- grep(pattern = "^mt-", x = rownames(x = mouse_eyes@data), value = TRUE)
-percent.mito <- Matrix::colSums(mouse_eyes@raw.data[mito.genes, ])/Matrix::colSums(mouse_eyes@raw.data)
-mouse_eyes <- AddMetaData(object = mouse_eyes, metadata = percent.mito, col.name = "percent.mito")
-mouse_eyes <- ScaleData(object = mouse_eyes, genes.use = genes.use, display.progress = FALSE, 
-                         vars.to.regress = "percent.mito")
-#Now we can run a single integrated analysis on all cells!
-VlnPlot(object = mouse_eyes, features.plot = c("nGene", "nUMI", "percent.mito"), nCol = 3)
+p0 <- TSNEPlot.1(object, group.by="orig.ident",pt.size = 1,label = F,
+                 label.size = 4, repel = T,title = "Original tsne plot")
+p1 <- UMAPPlot(object, group.by="orig.ident",pt.size = 1,label = F,
+               label.size = 4, repel = T)+ggtitle("Original umap plot")+
+    theme(plot.title = element_text(hjust = 0.5,size=15,face = "plain"))
 
-mouse_eyes <- FilterCells(object = mouse_eyes, subset.names = c("nGene", "percent.mito"), 
-                          low.thresholds = c(600, -Inf), high.thresholds = c(5000, 0.10))
+#======1.4 Performing CCA integration =========================
+set.seed(100)
+Idents(object) = "orig.ident"
+object_list <- lapply(df_samples$sample,function(x) subset(object,idents=x))
+anchors <- FindIntegrationAnchors(object.list = object_list, dims = 1:npcs)
+object <- IntegrateData(anchorset = anchors, dims = 1:npcs)
+remove(anchors,object_list);GC()
+DefaultAssay(object) <- "integrated"
+object %<>% ScaleData(verbose = FALSE)
+object %<>% RunPCA(npcs = npcs, features = VariableFeatures(object),verbose = FALSE)
+object %<>% FindNeighbors(reduction = "pca",dims = 1:npcs)
+object %<>% FindClusters(reduction = "pca",resolution = 0.6,
+                         dims.use = 1:npcs,print.output = FALSE)
+object %<>% RunTSNE(reduction = "pca", dims = 1:npcs)
+object %<>% RunUMAP(reduction = "pca", dims = 1:npcs)
 
-par(mfrow = c(1, 2))
-GenePlot(object = mouse_eyes, gene1 = "nUMI", gene2 = "percent.mito")
-GenePlot(object = mouse_eyes, gene1 = "nUMI", gene2 = "nGene")
+p2 <- TSNEPlot.1(object, group.by="orig.ident",pt.size = 1,label = F,
+                 label.size = 4, repel = T,title = "CCA tsne plot")
+p3 <- UMAPPlot(object, group.by="orig.ident",pt.size = 1,label = F,
+               label.size = 4, repel = T)+ggtitle("CCA umap plot")+
+    theme(plot.title = element_text(hjust = 0.5,size=15,face = "plain"))
 
-#======1.4 align seurat objects =========================
-#Now we align the CCA subspaces, which returns a new dimensional reduction called cca.aligned
-set.seed(42)
-mouse_eyes <- AlignSubspace(object = mouse_eyes, reduction.type = "cca", grouping.var = "conditions", 
-                            dims.align = 1:13)
-#Now we can run a single integrated analysis on all cells!
+jpeg(paste0(path,"S1_cca_TSNEPlot.jpeg"), units="in", width=10, height=7,res=600)
+plot_grid(p0+ theme(legend.position="bottom"),p2+ theme(legend.position="bottom"))
+dev.off()
 
-mouse_eyes <- FindClusters(object = mouse_eyes, reduction.type = "cca.aligned", dims.use = 1:13, 
-                           resolution = 0.55, force.recalc = T, save.SNN = TRUE)
+jpeg(paste0(path,"S1_cca_UMAP.jpeg"), units="in", width=10, height=7,res=600)
+plot_grid(p1+ theme(legend.position="bottom"),p3+ theme(legend.position="bottom"))
+dev.off()
 
-mouse_eyes <- RunTSNE(object = mouse_eyes, reduction.use = "cca.aligned", dims.use = 1:13, 
-                      do.fast = TRUE)
+Idents(object) = "integrated_snn_res.0.6"
+TSNEPlot.1(object, group.by="integrated_snn_res.0.6",pt.size = 1,label = F,
+           label.size = 4, repel = T,title = "All cluster in tSNE plot",do.print = T)
 
-p1 <- TSNEPlot(mouse_eyes, do.return = T, pt.size = 1, group.by = "conditions")
-p2 <- TSNEPlot(mouse_eyes, do.label = F, do.return = T, pt.size = 1)
-#png('./output/TSNESplot_alignment.png')
-plot_grid(p1, p2)
-#dev.off()
+UMAPPlot.1(object, group.by="integrated_snn_res.0.6",pt.size = 1,label = F,
+               label.size = 4, repel = T,title = "All cluster in UMAP plot",do.print = T)
 
-TSNEPlot(object = mouse_eyes,do.label = TRUE, group.by = "ident", 
-         do.return = TRUE, no.legend = TRUE,
-         pt.size = 1,label.size = 8 )+
-    ggtitle("aged and young mouse eyes")+
-    theme(text = element_text(size=20),     #larger text including legend title							
-          plot.title = element_text(hjust = 0.5)) #title in middle
-#dev.off()
-save(mouse_eyes, file = "./data/mouse_eyes_alignment.Rda")
+object@assays$integrated@scale.data = matrix(0,0,0)
+save(object,file = paste0("data/mm10_young_aged_eyes_",length(df_samples$sample),"_",gsub("-","",Sys.Date()),".Rda"))
