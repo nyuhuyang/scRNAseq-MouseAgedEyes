@@ -20,129 +20,73 @@ if(!dir.exists(path))dir.create(path, recursive = T)
 
 # 3.1.1 load data
 # Rename ident
-(load(file = "data/BladderCancer_mm10_6_20190706.Rda"))
-Idents(object) <-"RNA_snn_res.0.6"
-object <- sortIdent(object,numeric = T)
-#TSNEPlot(object)
-BladderCancer.markers <- FindAllMarkers.UMI(object = object, only.pos = F, logfc.threshold = 0.5,
-                                        test.use = "MAST")
-write.csv(BladderCancer.markers,paste0(path,"BladderCancer_markers_clusters_logfc1.csv"))
-top <-  BladderCancer.markers %>% group_by(cluster) %>% top_n(3, avg_logFC)
-object %<>% ScaleData(features = top$gene)
-DoHeatmap.1(object, marker_df = BladderCancer.markers, Top_n = 3, do.print=T, angle = 0,
+(load(file = "data/mm10_young_aged_eyes_2_20190712.Rda"))
+Idents(object) <- "Doublets"
+object %<>% subset(idents = "Singlet")
+
+object$conditions %<>% factor(levels = c("Young","Aged"))
+object$cell_type_conditions <- paste(object$cell.type,object$conditions,sep = "_")
+Idents(object) <-"cell_type_conditions"
+
+#========================================
+# Find markers between young and age in each cell type
+#========================================
+(cell_type <- sort(as.character(unique(object$cell.type))))
+ident.1 = paste0(cell_type,"_Young")
+ident.2 = paste0(cell_type,"_Aged")
+
+gde.markers <- FindPairMarkers(object, ident.1 = c(ident.1,ident.2),
+                               ident.2 = c(ident.2,ident.1), only.pos = T,
+                               logfc.threshold = 0.1,min.cells.group =3,
+                               return.thresh = 0.05,
+                               save.files = FALSE)
+write.csv(gde.markers,paste0(path,"Age_markers.csv"))
+(mito.genes <- grep(pattern = "^mt-", x = conditions_markers$gene))
+if(length(mito.genes)>0) gde.markers = gde.markers[-mito.genes,]
+GC()
+#DoHeatmap.1======
+Top_n = 10
+top <-  gde.markers %>% group_by(cluster1.vs.cluster2) %>% top_n(Top_n, avg_logFC)
+object %<>% ScaleData(features= unique(top$gene))
+
+DoHeatmap.1(object, add.genes = top$gene, Top_n = Top_n, do.print=T, angle = 0,
             group.bar = T, title.size = 20, no.legend = F,size=5,hjust = 0.5,
-            label=T, cex.row=6, legend.size = NULL,width=10, height=7,unique.name = T,
-            title = "Top 30 markers in CD45-negative and CD45-positive")
+            label=T, cex.row=5, legend.size = NULL,width=10, height=7,unique.name = T,
+            title = paste("Top",Top_n,"DE genes between Young and Aged mouse eyes"))
 
-# split by conditions
-Idents(object) = "conditions"
-table(object@meta.data$conditions)
-conditions.markers <- FindAllMarkers.UMI(object = object, only.pos = F,logfc.threshold = 0.5,
-                                         test.use = "MAST")
-write.csv(conditions.markers,paste0(path,"BladderCancer_markers_conditions_logfc0.5.csv"))
-top <-  conditions.markers %>% group_by(cluster) %>% top_n(50, avg_logFC)
-object %<>% ScaleData(features = top$gene)
-DoHeatmap.1(object, marker_df = conditions.markers, Top_n = 40, do.print=T, angle = 0,
-            group.bar = T, title.size = 20, no.legend = F,size=5,hjust = 0.5,
-            label=F, cex.row=7, legend.size = NULL,width=10, height=7,unique.name = T,
-            title = "Top 40 markers in CD45-negative and CD45-positive")
-
-FeaturePlot(object, features = c("Cd74","Krt15"), split.by = "conditions", max.cutoff = 3, 
-            cols = c("grey", "red"))
-
-plots <- VlnPlot(object, features = c("Cd74","Krt15","Trp53"), split.by = "conditions", group.by = "singler1sub", 
+#VlnPlot======
+plots <- VlnPlot(object, features = c("Id3", "Ptgds"), split.by = "conditions", group.by = "cell.type", 
                  pt.size = 0, combine = FALSE)
-jpeg(paste0(path,"Mouse_VlnPlot.jpeg"), units="in", width=7, height=10,res=600)
-CombinePlots(plots = plots, ncol = 1,legend = "bottom",label_x=1)
+jpeg(paste0(path,"VlnPlot.jpeg"), units="in", width=10, height=7,res=600)
+CombinePlots(plots = plots, ncol = 1)
 dev.off()
-#split by samples
-object$tumor = gsub('4950PN|4950PP','4950',object$orig.ident)
-Idents(object) <- "RNA_snn_res.0.6"
+# Volcano plot=========
+(clusters <- unique(gde.markers$cluster1.vs.cluster2))
+for(i in 1:(length(clusters)/2)){
+        df_young <- gde.markers[gde.markers$cluster1.vs.cluster2 %in% clusters[i],]
+        df_aged <- gde.markers[gde.markers$cluster1.vs.cluster2 %in% clusters[i+length(clusters)/2],]
 
-TSNEPlot.1(object,group.by = "RNA_snn_res.0.6",split.by = "tumor",do.print=T)
-
-Idents(object) <- "tumor"
-all_clusters.markers <- FindAllMarkers.UMI(object = object, only.pos = F, 
-                                            test.use = "MAST")
-write.csv(all_clusters.markers,paste0(path,"B5011_4950.markers.csv"))
-DoHeatmap.1(object,B5011_4950.markers,Top_n = 25, do.print=T,angle = 0,
-            group.bar = T,title.size = 20, no.legend = F,size=4,label=T,
-            title = "Top 25 markers in between 4950 and B5011")
-
-
-
-# gene set heatmap  ===========
-GeneSets <- c("Luminal_markers","EMT_and_smooth_muscle","EMT_and_claudin_markers",
-              "Basal_markers","Squamous_markers")
-object <- SetAllIdent(object,id = "orig.ident")
-
-y = t(object@meta.data[,GeneSets]) %>% scale()
-## Column clustering (adjust here distance/linkage methods to what you need!)
-hc <- hclust(as.dist(1-cor(y, method="pearson")), method="complete")
-cc = gsub("_.*","",hc$labels)
-cc = gsub("4950PP","#E31A1C",cc)
-cc = gsub("4950PN","#33A02C",cc)
-
-jpeg(paste0(path,"/Mouse_Heatmap_geneSet_zscore.jpeg"), units="in", width=10, height=7,res=600)
-heatmap.2(y,
-          Colv = as.dendrogram(hc), Rowv= FALSE,
-          ColSideColors = cc, trace ="none",labCol = FALSE,dendrogram = "column",#scale="row",
-          adjRow = c(1, NA),offsetRow = -52, cexRow = 1.5,
-          key.xlab = "Row z-score",
-          col = bluered)
-par(lend = 1)           # square line ends for the color legend
-legend(0, 0.83,       # location of the legend on the heatmap plot
-       legend = c("4950PP", "4950PN"), # category labels
-       col = c("#E31A1C", "#33A02C"),  # color key
-       lty= 1,             # line style
-       lwd = 10            # line width
-)
-dev.off()
-
-# geom_density  ===========
-BladderCancer_subset <- SplitSeurat(BladderCancer)
-samples <- BladderCancer_subset[[length(BladderCancer_subset)]]
-
-g <- list()
-for(i in 1:length(samples)){
-        data.use <- BladderCancer_subset[[i]]@meta.data[,GeneSets] %>% t() %>% #scale(center = F) %>%
-                t() %>% as.data.frame() %>% gather(key = Subtypes.markers, value = ave.expr)
-        g[[i]] <- ggplot(data.use, aes(x = ave.expr, fill = Subtypes.markers)) +
-                geom_density(alpha = .5) + scale_y_sqrt() +
-                theme(legend.position="none")+
-                xlab("Average expression (log nUMI)")+
-                ggtitle(samples[i])+
-                theme(text = element_text(size=15),
-                      legend.position=c(0.35,0.8),
-                      plot.title = element_text(hjust = 0.5,size = 15, face = "bold"))
+        df_young$log10_p_val_adj = -log10(df_young$p_val_adj)
+        df_aged$log10_p_val_adj = -log10(df_aged$p_val_adj)
+        df_young$avg_logFC = -df_young$avg_logFC
+        df = rbind.data.frame(df_young, df_aged)
+        
+        df$log10_p_val_adj[df$log10_p_val_adj == "Inf"] = 400
+        
+        left = rownames(df_young)[df_young$log10_p_val_adj >= head(sort(df_young$log10_p_val_adj,decreasing = T),15) %>% tail(1)]
+        right = rownames(df_aged)[df_aged$log10_p_val_adj >= head(sort(df_aged$log10_p_val_adj,decreasing = T),15) %>% tail(1)]
+        g <- ggplot(df,aes(avg_logFC,log10_p_val_adj)) + 
+                geom_point() + 
+                ggtitle(paste("Young (left) and Aged (right) mouse eyes'",cell_type[i])) + 
+                ylab("-log10(p_value_adj)")+
+                theme_minimal()+
+                theme(plot.title = element_text(size=20,hjust = 0.5))+
+                ggrepel::geom_text_repel(aes(label = gene), 
+                                         data=df[c(left[1:15],right[1:15]),]) +
+                geom_point(color = ifelse((df$avg_logFC > 0.5  & df$p_val_adj < 0.05) , "red",
+                                          ifelse((df$avg_logFC < -0.5 & df$p_val_adj < 0.05), "blue","gray")))
+        jpeg(paste0(path,"Volcano_plot_",cell_type[i],".jpeg"), units="in", width=10, height=7,res=600)
+        print(g)
+        dev.off()
 }
-jpeg(paste0(path,"Mouse_density.jpeg"), units="in", width=10, height=7,res=600)
-do.call(plot_grid,g)+
-        ggtitle("Muscle-invasive bladder cancer lineage scores in mouse samples")+
-        theme(text = element_text(size=15),							
-              plot.title = element_text(hjust = 0.5,size = 15, face = "bold"))
-dev.off()
 
-
-# histgram  ===========
-BladderCancer_subset <- SplitSeurat(BladderCancer)
-samples <- BladderCancer_subset[[length(BladderCancer_subset)]]
-
-g1 <- list()
-for(i in 1:length(samples)){
-        data.use <- BladderCancer_subset[[i]]@meta.data[,GeneSets] %>% t() %>% #scale(center = F) %>%
-                t() %>% as.data.frame() %>% gather(key = Subtypes.markers, value = ave.expr)
-        g1[[i]] <- ggplot(data.use, aes(x = ave.expr, fill = Subtypes.markers)) +
-                geom_histogram(binwidth=0.03, alpha=0.5, position="identity") + scale_y_sqrt() +
-                theme(legend.position="none")+
-                ggtitle(samples[i])+
-                theme(text = element_text(size=15),
-                      legend.position=c(0.35,0.8),
-                      plot.title = element_text(hjust = 0.5,size = 15, face = "bold"))
-}
-jpeg(paste0(path,"Mouse_histogram.jpeg"), units="in", width=10, height=7,res=600)
-do.call(plot_grid,g1)+
-        ggtitle("Muscle-invasive bladder cancer lineage scores in mouse samples")+
-        theme(text = element_text(size=15),							
-              plot.title = element_text(hjust = 0.5,size = 15, face = "bold"))
-dev.off()

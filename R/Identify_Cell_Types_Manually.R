@@ -45,3 +45,30 @@ for(i in 1:length(marker.list)){
 object_data <- object@assays$RNA@data
 save(object_data, file = "data/object_mm10_young_aged_eyes_2_20190712.Rda")
 
+#============================
+# Dot plot
+#============================
+markers.to.plot <- c("Cdh5", "Pecam1", "Dcn", "Pdgfra", "Acta2", "Myh11", 
+                     "Pdgfrb","Rgs5","Rpe65","Rlbp1","Pmel","Mlana","Mbp","Mpz",
+                     "Ptprc", "Laptm5", "Cd14", "Ms4a7","Nkg7","Cd3g","Cd19")
+markers.to.plot <- FilterGenes(object,markers.to.plot)
+Idents(object) = "res.0.6"
+Idents(object) %<>% factor(levels = c(9,13,14,12,17,18,2,3,10,4,5,16,0,8,15,1,6,7,11))
+g <- DotPlot(object, features = rev(markers.to.plot), 
+             cols = c("blue", "red"), dot.scale = 8) + RotatedAxis()
+jpeg(paste0(path,"Dot_plot_cluster.jpeg"), units="in", width=10, height=6,res=600)
+print(g)
+dev.off()
+
+
+Idents(object) = "cell.type"
+Idents(object) %<>% factor(levels = c("Lymphoid cells","Myeloid cells",
+                                      "Myelinating Schwann cells","Melanocytes",
+                                      "Retinal pigment epithelium","Pericytes","Stromal cells",
+                                      "Endothelial cells"))
+g <- DotPlot(object, features = rev(markers.to.plot), 
+             split.by = "conditions",
+             cols = c("blue", "red"), dot.scale = 8) + RotatedAxis()
+jpeg(paste0(path,"Dot_plot.jpeg"), units="in", width=10, height=7,res=600)
+print(g)
+dev.off()

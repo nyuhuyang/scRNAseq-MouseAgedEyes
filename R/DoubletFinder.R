@@ -108,6 +108,10 @@ object@meta.data = meta.data
 TSNEPlot.1(object, group.by = "Doublets",cols = c("red","orange","black"), 
            title = "Singlets and possible Doublets", do.print = T,pt.size = 0.8)
 
+
+UMAPPlot.1(object, group.by = "Doublets",cols = c("red","orange","black"), 
+           title = "Singlets and possible Doublets", do.print = T,pt.size = 0.8)
+
 table(object$Doublets) %>% prop.table %>% kable %>% kable_styling()
 
 save(object,file="data/mm10_young_aged_eyes_2_20190712.Rda")

@@ -98,8 +98,8 @@ object <- AddMetaData(object = object,metadata = singlerDF)
 object <- AddMetaColor(object = object, label= "cell.type", colors = singler_colors1)
 Idents(object) <- "cell.type"
 object %<>% sortIdent()
-# Idents(object) <- "Doublets"
-#object %<>% subset(idents = "Singlet")
+Idents(object) <- "Doublets"
+object %<>% subset(idents = "Singlet")
 TSNEPlot.1(object, cols = ExtractMetaColor(object),label = F,pt.size = 1,no.legend = T,
          label.size = 5, repel = T,do.print = T,title = "All cell types in tSNE plot")
 
@@ -107,5 +107,23 @@ UMAPPlot.1(object, group.by="cell.type",pt.size = 1,label = F,
          cols = ExtractMetaColor(object),do.print = T,no.legend = T,
          label.size = 5, repel = T,title = "All cell types in UMAP plot")
 
+# split tsne and umap
+object@meta.data$conditions %<>% factor(levels = c("Young", "Aged"))
+TSNEPlot.1(object, cols = ExtractMetaColor(object),label = F,pt.size = 1,
+           no.legend = T, split.by = "conditions",
+           label.size = 5, repel = T,do.print = T,
+           title = "Compare cell types between young and aged mouse eyes")
+
+UMAPPlot.1(object, group.by="cell.type",pt.size = 1,label = F,
+           cols = ExtractMetaColor(object),do.print = T,no.legend = T,
+           label.size = 5, repel = T,split.by = "conditions",
+           title = "Compare cell types between young and aged mouse eyes")
+
 save(object,file="data/mm10_young_aged_eyes_2_20190712.Rda")
 
+Idents(object) <- "cell.type"
+object %<>% sortIdent
+(data_long <- table(object$cell.type, object$orig.ident) %>% as.data.frame)
+(data_wide <- tidyr::spread(data_long, Var2,Freq))
+colnames(data_wide)[1] = "Cell type"
+write.csv(data_wide,paste0(path,"Cell_type_number.csv"))

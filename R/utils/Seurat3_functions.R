@@ -403,7 +403,7 @@ DoHeatmap.1 <- function(object, marker_df, add.genes = NULL, no.legend =F,unique
                          lines.width = lines.width, group.bar.height = group.bar.height, 
                          combine = combine)+
         scale_y_discrete(position = "right")
-    heatmap = heatmap + scale_fill_gradientn(colors = ggsci::pal_gsea()(12))
+    #heatmap = heatmap + scale_fill_gradientn(colors = ggsci::pal_gsea()(12))
     if(!is.null(title)) {
         heatmap = heatmap+ ggtitle(title)+ 
             theme(plot.title = element_text(size=title.size, hjust = 0.5,face="plain"))
@@ -845,9 +845,9 @@ FindMarkers.UMI <- function (object, ident.1 = NULL, ident.2 = NULL, group.by = 
                               pseudocount.use = pseudocount.use, ...)
     
     de.results$avg_logFC = log2(exp(1)) * de.results$avg_logFC
-    ave_UMI.1 <- Matrix::rowMeans(expm1(x = data.use[, ident.1]))
-    ave_UMI.2 <- Matrix::rowMeans(expm1(x = data.use[, ident.2]))
-    avg_UMI <-data.frame(ave_UMI.1, ave_UMI.2)
+    avg_UMI.1 <- Matrix::rowMeans(expm1(x = data.use[, ident.1]))
+    avg_UMI.2 <- Matrix::rowMeans(expm1(x = data.use[, ident.2]))
+    avg_UMI <-data.frame(avg_UMI.1, avg_UMI.2)
     de.results <- cbind(de.results,avg_UMI[match(rownames(de.results),rownames(avg_UMI)),])
     
     return(de.results)
@@ -1571,7 +1571,7 @@ TSNEPlot.1 <- function(
         v <- unique(object$orig.ident)
         v <- paste(v[1:min(5,length(v))],collapse = "_")
     } else v <- deparse(substitute(object))
-    v = paste0(v,"_",FindIdentLabel(object))
+    v = paste0(v,"_",group.by %||% FindIdentLabel(object))
     if (length(x = dims) != 2) {
         stop("'dims' must be a two-length vector")
     }
